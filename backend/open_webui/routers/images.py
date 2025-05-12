@@ -413,7 +413,8 @@ class GenerateImageForm(BaseModel):
     size: Optional[str] = None
     n: int = 1
     negative_prompt: Optional[str] = None
-
+    steps: Optional[int] = None
+    
 
 def load_b64_image_data(b64_str):
     try:
@@ -470,7 +471,13 @@ async def image_generations(
     form_data: GenerateImageForm,
     user=Depends(get_verified_user),
 ):
-    width, height = tuple(map(int, request.app.state.config.IMAGE_SIZE.split("x")))
+    width, height = tuple(map(int, 
+        form_data.size.split("x") if form_data.size 
+        else request.app.state.config.IMAGE_SIZE.split("x")
+    ))
+
+    steps = form_data.steps if form_data.steps is not None \
+        else request.app.state.config.IMAGE_STEPS
 
     r = None
     try:
@@ -495,11 +502,7 @@ async def image_generations(
                 ),
                 "prompt": form_data.prompt,
                 "n": form_data.n,
-                "size": (
-                    form_data.size
-                    if form_data.size
-                    else request.app.state.config.IMAGE_SIZE
-                ),
+                "size": form_data.size or request.app.state.config.IMAGE_SIZE
                 **(
                     {}
                     if "gpt-image-1" in request.app.state.config.IMAGE_GENERATION_MODEL
@@ -571,10 +574,8 @@ async def image_generations(
                 "width": width,
                 "height": height,
                 "n": form_data.n,
+                "steps": steps
             }
-
-            if request.app.state.config.IMAGE_STEPS is not None:
-                data["steps"] = request.app.state.config.IMAGE_STEPS
 
             if form_data.negative_prompt is not None:
                 data["negative_prompt"] = form_data.negative_prompt
@@ -630,10 +631,8 @@ async def image_generations(
                 "batch_size": form_data.n,
                 "width": width,
                 "height": height,
+                "steps": steps,
             }
-
-            if request.app.state.config.IMAGE_STEPS is not None:
-                data["steps"] = request.app.state.config.IMAGE_STEPS
 
             if form_data.negative_prompt is not None:
                 data["negative_prompt"] = form_data.negative_prompt
